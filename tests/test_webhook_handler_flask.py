@@ -1,11 +1,37 @@
+import inspect
 import os
+from typing import Union
 from unittest import TestCase
 from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from flask import Flask
 
+from githubapp import webhook_handler
+from githubapp.events.event import Event
 from githubapp.webhook_handler import handle_with_flask
+
+
+def _get_events(main_event=Event, event_identifier=None) -> list[type[Event]]:
+    if main_event.__name__.endswith("Test"):
+        return []
+    events = []
+    event_identifier = event_identifier or {}
+    event_identifier.update(main_event.event_identifier or {})
+    for sub_event in main_event.__subclasses__():
+        sub_event.event_identifier.update(event_identifier)
+        if sub_event.__subclasses__():
+            events.extend(_get_events(sub_event, event_identifier.copy()))
+        else:
+            events.append(sub_event)
+    return events
+
+
+def _get_parameters(event):
+    parameters = dict(inspect.signature(event).parameters)
+    if event.__base__ != Event:
+        parameters.update(_get_parameters(event.__base__))
+    return parameters.items()
 
 
 @pytest.fixture
@@ -15,12 +41,27 @@ def app():
     return mock
 
 
+def _generate_default(type_):
+    if args := getattr(type_, "__args__", None):
+        origin = type_.__origin__
+        if origin is Union:
+            return args[0]()
+        if origin is list:
+            return [_generate_default(args[0])]
+    return type_()
+
+
+@pytest.fixture
+def client():
+    app = Flask("Test")
+    handle_with_flask(app)
+    yield app.test_client()
+
+
 def test_handle_with_flask(app):
     handle_with_flask(app)
     assert app.route.call_count == 2
-    app.route.assert_has_calls(
-        [call("/", methods=["GET"]), call("/", methods=["POST"])], any_order=True
-    )
+    app.route.assert_has_calls([call("/", methods=["GET"]), call("/", methods=["POST"])], any_order=True)
 
 
 def test_handle_with_flask_validation(app):
@@ -33,7 +74,7 @@ def test_handle_with_flask_validation(app):
     assert app.route.call_count == 0
 
 
-class TestApp(TestCase):
+class TestCaseAppHandler(TestCase):
     def setUp(self):
         app = Flask("Test")
         handle_with_flask(app)
@@ -99,3 +140,50 @@ class TestApp(TestCase):
             }
             self.client.post("/", headers=headers, json=request_json)
             mock_handle.assert_called_once_with(headers, request_json, None)
+
+    def send_event(self, event):
+        event_identifier = event.event_identifier.copy()
+        headers = {
+            "Content-Type": "application/json",
+            "X-Github-Event": event_identifier.pop("event"),
+            "X-Github-Hook-Installation-Target-Id": 1,
+            "X-Github-Hook-Installation-Target-Type": "integration",
+            "X-Github-Delivery": "36adea52-3cd6-4726-a03a-4d8eebcb7364",
+            "X-Github-Hook-Id": 3,
+        }
+        body = {"installation": {"id": 2}, "sender": {}}
+        for name, parameter in _get_parameters(event):
+            if name == "kwargs":
+                continue
+            body[name] = _generate_default(parameter.annotation)
+        body.update(event_identifier)
+        return self.client.post("/", headers=headers, json=body)
+
+
+@pytest.fixture(autouse=True)
+def set_up(monkeypatch):
+    monkeypatch.setenv("PRIVATE_KEY", "private_key")
+    with (
+        patch("githubapp.webhook_handler.GithubIntegration"),
+        patch("githubapp.webhook_handler.AppUserAuth"),
+        patch("githubapp.webhook_handler.Token"),
+    ):
+        yield
+
+
+@pytest.mark.parametrize("event", _get_events())
+def test_webhook(event: type[Event], client):
+    called = False
+
+    @webhook_handler.add_handler(event)
+    def handler(event_handled: Event):
+        nonlocal called
+        called = True
+        assert isinstance(event_handled, event)
+
+    handler.called = lambda: called
+
+    response = TestCaseAppHandler.send_event(Mock(client=client), event)
+
+    assert response.status_code == 200
+    assert handler.called()

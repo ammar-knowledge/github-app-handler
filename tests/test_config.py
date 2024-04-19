@@ -68,16 +68,103 @@ def test_no_config_value():
     with pytest.raises(ConfigError) as err:
         # noinspection PyStatementEffect
         Config.config1
-    assert (
-        str(err.value)
-        == "No such config value: config1. And there is no default value for it"
-    )
+    assert str(err.value) == "No such config value: config1. And there is no default value for it"
 
 
 def test_validate_default_or_values():
     with pytest.raises(ConfigError) as err:
         Config.create_config("config1", default="value1", value2="value2")
-    assert (
-        str(err.value)
-        == "You cannot set the default value AND default values for sub values"
-    )
+    assert str(err.value) == "You cannot set the default value AND default values for sub values"
+
+
+def test_config_call_if_call():
+    Config.create_config("config", enabled=True)
+    called = False
+
+    @Config.call_if("config.enabled")
+    def call():
+        nonlocal called
+        called = True
+        return "value"
+
+    call.called = lambda: called
+
+    assert call() == "value"
+    assert call.called()
+
+
+def test_config_call_if_dont_call():
+    Config.create_config("config", enabled=False)
+    called = False
+
+    @Config.call_if("config.enabled")
+    def call():
+        nonlocal called
+        called = True
+        return "value"
+
+    call.called = lambda: called
+
+    assert call() is None
+    assert call.called() is False
+
+
+def test_config_call_if_dont_call_with_default_return_value():
+    Config.create_config("config", enabled=False)
+    called = False
+
+    @Config.call_if("config.enabled", return_on_not_call="returned_value")
+    def call():
+        nonlocal called
+        called = True
+        return "value"
+
+    call.called = lambda: called
+
+    assert call() == "returned_value"
+    assert call.called() is False
+
+
+def test_config_call_if_call_compare_with_value():
+    Config.create_config("config", inner={"value": "value"})
+    called = False
+
+    @Config.call_if("config.inner.value", "value")
+    def call():
+        nonlocal called
+        called = True
+
+    call.called = lambda: called
+
+    call()
+    assert call.called()
+
+
+def test_config_call_if_dont_call_compare_with_value():
+    Config.create_config("config", value="value")
+    called = False
+
+    @Config.call_if("config.value", "other_value")
+    def call():
+        nonlocal called
+        called = True
+
+    call.called = lambda: called
+
+    call()
+    assert call.called() is False
+
+
+def test_config_call_if_with_env(monkeypatch):
+    monkeypatch.setenv("SHOULD_CALL", "YES")
+    called = False
+
+    @Config.call_if("SHOULD_CALL")
+    def call():
+        nonlocal called
+        called = True
+
+    call.called = lambda: called
+
+    call()
+    assert call.called() is True

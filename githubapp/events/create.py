@@ -8,19 +8,19 @@ class CreateEvent(Event):
 
     def __init__(
         self,
-        description,
-        master_branch,
-        pusher_type,
-        ref,
-        ref_type,
+        description: str,
+        master_branch: str,
+        pusher_type: str,
+        ref: str,
+        ref_type: str,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.description: str = description
-        self.master_branch: str = master_branch
-        self.pusher_type: str = pusher_type
-        self.ref: str = ref
-        self.ref_type: str = ref_type
+        self.description = description
+        self.master_branch = master_branch
+        self.pusher_type = pusher_type
+        self.ref = ref
+        self.ref_type = ref_type
 
 
 class CreateBranchEvent(CreateEvent):

@@ -1,9 +1,10 @@
 import re
 from typing import Any, Optional, TypeVar
 
-from github.CheckRun import CheckRun
 from github.NamedUser import NamedUser
 from github.Repository import Repository
+
+from githubapp import EventCheckRun
 
 T = TypeVar("T")
 
@@ -32,19 +33,18 @@ class Event:
         Event.delivery = headers["X-Github-Delivery"]
         Event.github_event = headers["X-Github-Event"]
         Event.hook_id = int(headers["X-Github-Hook-Id"])
-        Event.hook_installation_target_id = int(
-            headers["X-Github-Hook-Installation-Target-Id"]
-        )
-        Event.hook_installation_target_type = headers[
-            "X-Github-Hook-Installation-Target-Type"
-        ]
+        Event.hook_installation_target_id = int(headers["X-Github-Hook-Installation-Target-Id"])
+        Event.hook_installation_target_type = headers["X-Github-Hook-Installation-Target-Type"]
+        if installation_id := kwargs.get("installation", {}).get("id"):
+            installation_id = int(installation_id)
+        Event.installation_id = installation_id
         Event._raw_headers = headers
         Event._raw_body = kwargs
         self.gh = gh
         self.requester = requester
         self.repository = self._parse_object(Repository, repository)
         self.sender = self._parse_object(NamedUser, sender)
-        self.check_run: Optional[CheckRun] = None
+        self.check_runs: list[EventCheckRun] = []
 
     @staticmethod
     def normalize_dicts(*dicts) -> dict[str, str]:
@@ -95,10 +95,7 @@ class Event:
         Returns:
             bool: True if the event matches the event_identifier, False otherwise
         """
-        return all(
-            (attr in data and value == data[attr])
-            for attr, value in cls.event_identifier.items()
-        )
+        return all((attr in data and value == data[attr]) for attr, value in cls.event_identifier.items())
 
     @staticmethod
     def fix_attributes(attributes):
@@ -123,34 +120,16 @@ class Event:
         )
 
     def start_check_run(
-        self, name, sha, title, summary=None, text=None, status="in_progress"
+        self,
+        name: str,
+        sha: str,
+        title: Optional[str] = None,
+        summary: Optional[str] = None,
+        text: Optional[str] = None,
+        status: str = "in_progress",
     ):
         """Start a check run"""
-        output = {"title": title or name, "summary": summary or ""}
-        if text:
-            output["text"] = text
-
-        self.check_run = self.repository.create_check_run(
-            name,
-            sha,
-            status=status,
-            output=output,
-        )
-
-    def update_check_run(self, status=None, conclusion=None, **output):
-        """Updates the check run"""
-        args = {}
-        if status is not None:
-            args["status"] = status
-
-        if conclusion is not None:
-            args["conclusion"] = conclusion
-            args["status"] = "completed"
-
-        if output:
-            output["title"] = output.get("title", self.check_run.output.title)
-            output["summary"] = output.get("summary", self.check_run.output.summary)
-            args["output"] = output
-
-        if args:
-            self.check_run.edit(**args)
+        event_check_run = EventCheckRun(self.repository, name, sha)
+        event_check_run.start(title=title, summary=summary, text=text, status=status)
+        self.check_runs.append(event_check_run)
+        return event_check_run

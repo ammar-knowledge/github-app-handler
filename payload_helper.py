@@ -23,13 +23,12 @@ def github_payload():
     print()
     file_name = f"payloads/{event_full_name}.json"
     with open(file_name, "w") as file:
-        file.write(
-            json.dumps(
-                {
-                    "headers": dict(headers),
-                    "data": data,
-                }
-            )
+        json.dump(
+            {
+                "headers": dict[str, str](headers),
+                "data": data,
+            },
+            file,
         )
     print("-" * 100)
 
@@ -45,9 +44,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.record:
         print(1)
-        with Popen(
-            "smee -u https://smee.io/polidoro-testing -p 3333 -P /".split()
-        ) as p:
+        with Popen("smee -u https://smee.io/polidoro-testing -p 3333 -P /".split()) as p:
             print(2)
             app.debug = True
             app.run(port=3333)
@@ -58,6 +55,8 @@ if __name__ == "__main__":
         headers = payload["headers"]
         data = payload["data"]
 
-        headers["X-GitHub-Hook-Installation-Target-ID"] = args.installation_target_id[0]
-        data["installation"]["id"] = args.installation_id[0]
+        if args.installation_target_id:
+            headers["X-GitHub-Hook-Installation-Target-ID"] = args.installation_target_id[0]
+        if args.installation_id:
+            data["installation"]["id"] = args.installation_id[0]
         print(post(headers=headers, json=data, url="http://127.0.0.1:5000"))

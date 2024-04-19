@@ -8,7 +8,7 @@ class ReleaseEvent(Event):
 
     event_identifier = {"event": "release"}
 
-    def __init__(self, release, **kwargs):
+    def __init__(self, release: dict[str, str], **kwargs):
         super().__init__(**kwargs)
         self.release = self._parse_object(GitRelease, release)
 

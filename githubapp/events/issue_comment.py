@@ -9,7 +9,7 @@ class IssueCommentEvent(Event):
 
     event_identifier = {"event": "issue_comment"}
 
-    def __init__(self, issue, issue_comment, **kwargs):
+    def __init__(self, issue: dict[str, str], issue_comment: dict[str, str], **kwargs):
         super().__init__(**kwargs)
         self.issue = self._parse_object(Issue, issue)
         self.issue_comment = self._parse_object(IssueComment, issue_comment)
@@ -26,7 +26,7 @@ class IssueCommentEditedEvent(IssueCommentEvent):
 
     event_identifier = {"action": "edited"}
 
-    def __init__(self, changes, **kwargs):
+    def __init__(self, changes: dict[str, str], **kwargs):
         super().__init__(**kwargs)
         self.changes = changes
 

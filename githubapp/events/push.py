@@ -13,17 +13,17 @@ class PushEvent(Event):
 
     def __init__(
         self,
-        after,
-        base_ref,
-        before,
-        commits,
-        compare,
-        created,
-        deleted,
-        forced,
-        head_commit,
-        pusher,
-        ref,
+        after: str,
+        base_ref: Optional[str],
+        before: str,
+        commits: list[dict],
+        compare: str,
+        created: bool,
+        deleted: bool,
+        forced: bool,
+        head_commit: dict[str, str],
+        pusher: dict[str, str],
+        ref: str,
         **kwargs,
     ):
         super().__init__(**kwargs)

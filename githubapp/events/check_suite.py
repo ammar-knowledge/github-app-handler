@@ -2,6 +2,7 @@
 Module for handling GitHub check_suite webhook events.
 https://docs.github.com/en/webhooks/webhook-events-and-payloads#check_suite
 """
+
 from github.CheckSuite import CheckSuite
 
 from githubapp.events.event import Event
@@ -14,7 +15,7 @@ class CheckSuiteEvent(Event):
 
     def __init__(
         self,
-        check_suite,
+        check_suite: dict[str, str],
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)

@@ -128,20 +128,22 @@ def handle(headers: dict[str, Any], body: dict[str, Any], config_file: str = Non
         retry=GithubRetry(),
         pool_size=None,
     )
+    body.pop("requester", None)
 
     event = event_class(gh=gh, requester=requester, headers=headers, **body)
-    if config_file:
+    if config_file and event.repository:
         Config.load_config_from_file(config_file, event.repository)
     try:
         for handler in handlers.get(event_class, []):
             handler(event)
     except Exception:
-        if event.check_run:
-            event.update_check_run(conclusion="failure", text=traceback.format_exc())
+        for cr in event.check_runs:
+            if cr.check_run.status != "completed":
+                cr.update(conclusion="failure", text=traceback.format_exc())
         raise
 
 
-def default_index(name, version=None, versions_to_show=None) -> Callable[[], str]:
+def default_index(name, version=None, versions_to_show: Optional[list] = None) -> Callable[[], str]:
     """Decorator to register a default root handler.
 
     Args:
@@ -203,7 +205,9 @@ def handle_with_flask(
         app (Flask): The Flask application to register the webhook_handler with.
         use_default_index (bool): Whether to register the root handler with the Flask application. Default is False.
         webhook_endpoint (str): The endpoint to register the webhook_handler with. Default is "/".
-        auth_callback_handler (Callable[[int, AccessToken], None]): The function to handle the auth_callback. Default is None.
+        auth_callback_handler (Callable[[int, AccessToken], None]): The function to handle the auth_callback.
+        Default is None.
+
         version (str): The version of the App.
         versions_to_show (str): The libraries to show the version.
         config_file (str): The config file path to autoload

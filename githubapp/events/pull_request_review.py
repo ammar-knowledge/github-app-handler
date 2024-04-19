@@ -11,8 +11,8 @@ class PullRequestReviewEvent(Event):
 
     def __init__(
         self,
-        pull_request,
-        review,
+        pull_request: dict[str, str],
+        review: dict[str, str],
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -31,7 +31,7 @@ class PullRequestReviewEditedEvent(PullRequestReviewEvent):
 
     event_identifier = {"action": "edited"}
 
-    def __init__(self, changes, **kwargs):
+    def __init__(self, changes: dict[str, str], **kwargs):
         super().__init__(**kwargs)
         self.changes = changes
 

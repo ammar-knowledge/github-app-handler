@@ -11,7 +11,7 @@ class IssuesEvent(Event):
 
     def __init__(
         self,
-        issue,
+        issue: dict[str, str],
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -25,18 +25,12 @@ class IssueOpenedEvent(IssuesEvent):
 
     def __init__(
         self,
-        changes=None,
+        changes: dict[str, str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.old_issue = (
-            self._parse_object(Issue, changes.get("old_issue")) if changes else None
-        )
-        self.old_repository = (
-            self._parse_object(Repository, changes.get("old_repository"))
-            if changes
-            else None
-        )
+        self.old_issue = self._parse_object(Issue, changes.get("old_issue")) if changes else None
+        self.old_repository = self._parse_object(Repository, changes.get("old_repository")) if changes else None
 
 
 class IssueEditedEvent(IssuesEvent):
@@ -46,7 +40,7 @@ class IssueEditedEvent(IssuesEvent):
 
     def __init__(
         self,
-        changes,
+        changes: dict[str, str],
         **kwargs,
     ):
         super().__init__(**kwargs)
