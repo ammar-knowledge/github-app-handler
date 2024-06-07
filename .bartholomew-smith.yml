@@ -1,0 +1,4 @@
+release_manager:
+  file_path: githubapp/__init__.py
+pull_request_manager:
+  auto_approve_logins: ['deepsource-autofix[bot]']

@@ -1,3 +1,5 @@
+"""Class to represents the Github Status events"""
+
 from typing import Optional
 
 from github.Branch import Branch

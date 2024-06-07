@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "github-app-handler"
 authors = [
-    { name="Heitor Luis Polidoro" },
+    { name = "Heitor Luis Polidoro" },
 ]
 description = "Package to help creates Github Apps."
 readme = "README.md"
@@ -23,16 +23,32 @@ dynamic = ["version", "dependencies"]
 "Homepage" = "https://github.com/heitorpolidoro/github-app-handler"
 
 [tool.setuptools.dynamic]
-version = {attr = "githubapp.__version__"}
-dependencies = {file = ["requirements.txt"]}
+version = { attr = "githubapp.__version__" }
+dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools.packages.find]
-exclude = ["payloads", "tests"]
+exclude = ["payloads", "tests*"]
+
+[tool.setuptools.package-data]
+githubapp = ["test_helper/*.json"]
 
 [tool.coverage.run]
 source = ["."]
-omit = ["tests/*", "payload_helper.py"]
+omit = ["tests/*", "payload_helper.py", "spy.py", "test_case.py"]
 relative_files = true
 
 [tool.black]
 line_length = 120
+
+[tool.pylint]
+max-line-length = 120
+disable = [
+    "R0902",
+    "R0913",
+    "W0622",
+    "C0103",
+    "C0415",
+]
+
+[tool.mypy]
+exclude = "tests/*"

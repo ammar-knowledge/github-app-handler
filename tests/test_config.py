@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
-from github import UnknownObjectException
+from github import GithubException, UnknownObjectException
 
 from githubapp import Config
 from githubapp.config import ConfigError
@@ -60,6 +60,26 @@ def test_config_on_file_not_found():
     assert Config.config1 == "default1"
 
 
+def test_config_on_empty_repository():
+    repository = Mock()
+    repository.get_contents.side_effect = GithubException(
+        404, data={"message": "This repository is empty."}
+    )
+    Config.load_config_from_file("file", repository)
+    Config.create_config("config1", default="default1")
+
+    assert Config.config1 == "default1"
+
+
+def test_config_on_other_github_error():
+    repository = Mock()
+    repository.get_contents.side_effect = GithubException(
+        404, data={"message": "Other error"}
+    )
+    with pytest.raises(GithubException):
+        Config.load_config_from_file("file", repository)
+
+
 def test_no_config_value():
     repository = Mock()
     repository.get_contents.return_value = Mock(decoded_content="")
@@ -68,13 +88,19 @@ def test_no_config_value():
     with pytest.raises(ConfigError) as err:
         # noinspection PyStatementEffect
         Config.config1
-    assert str(err.value) == "No such config value: config1. And there is no default value for it"
+    assert (
+        str(err.value)
+        == "No such config value for config1. And there is no default value for it"
+    )
 
 
 def test_validate_default_or_values():
     with pytest.raises(ConfigError) as err:
         Config.create_config("config1", default="value1", value2="value2")
-    assert str(err.value) == "You cannot set the default value AND default values for sub values"
+    assert (
+        str(err.value)
+        == "You cannot set the default value AND default values for sub values"
+    )
 
 
 def test_config_call_if_call():

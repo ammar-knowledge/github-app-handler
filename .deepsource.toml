@@ -2,7 +2,10 @@ version = 1
 test_patterns = [
   '**/tests/**',
   '**/test_*.py',
-  'payload_helper.py'
+]
+
+exclude_patterns = [
+  "payload_helper.py"
 ]
 
 [[analyzers]]
@@ -18,8 +21,9 @@ name = "python"
 
 [[transformers]]
 name = "black"
-enabled = true
 
 [[transformers]]
 name = "isort"
-enabled = true
+
+[[transformers]]
+name = "ruff"

@@ -44,7 +44,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.record:
         print(1)
-        with Popen("smee -u https://smee.io/polidoro-testing -p 3333 -P /".split()) as p:
+        with Popen(
+            "smee -u https://smee.io/polidoro-testing -p 3333 -P /".split()
+        ) as p:
             print(2)
             app.debug = True
             app.run(port=3333)
@@ -56,7 +58,9 @@ if __name__ == "__main__":
         data = payload["data"]
 
         if args.installation_target_id:
-            headers["X-GitHub-Hook-Installation-Target-ID"] = args.installation_target_id[0]
+            headers["X-GitHub-Hook-Installation-Target-ID"] = (
+                args.installation_target_id[0]
+            )
         if args.installation_id:
             data["installation"]["id"] = args.installation_id[0]
         print(post(headers=headers, json=data, url="http://127.0.0.1:5000"))

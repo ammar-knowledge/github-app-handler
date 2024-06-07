@@ -1,3 +1,5 @@
+"""Parent class to represents the Github events"""
+
 import re
 from typing import Any, Optional, TypeVar
 
@@ -5,6 +7,7 @@ from github.NamedUser import NamedUser
 from github.Repository import Repository
 
 from githubapp import EventCheckRun
+from githubapp.event_check_run import CheckRunStatus
 
 T = TypeVar("T")
 
@@ -126,7 +129,7 @@ class Event:
         title: Optional[str] = None,
         summary: Optional[str] = None,
         text: Optional[str] = None,
-        status: str = "in_progress",
+        status: CheckRunStatus = CheckRunStatus.WAITING,
     ):
         """Start a check run"""
         event_check_run = EventCheckRun(self.repository, name, sha)

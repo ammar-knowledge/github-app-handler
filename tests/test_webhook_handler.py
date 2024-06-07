@@ -5,6 +5,7 @@ from github import GithubIntegration
 from github.Auth import AppUserAuth, Token
 
 from githubapp import webhook_handler
+from githubapp.exceptions import GithubAppRuntimeException
 from githubapp.webhook_handler import _get_auth, default_index, handle
 from tests.mocks import EventTest, SubEventTest
 
@@ -91,15 +92,20 @@ def test_when_exception_and_has_check_run(event, event_action_request, mock_auth
     def method(inner_event):
         inner_event.repository = event.repository
         inner_event.start_check_run("name", "sha", title="title")
+        inner_event.start_check_run("other", "sha2", title="title")
         event.check_runs = inner_event.check_runs
         raise ExceptionTest("test")
 
+    event.repository.create_check_run.side_effect = [
+        Mock(status="pending"),
+        Mock(status="completed"),
+    ]
     webhook_handler.register_method_for_event(EventTest, method)
     with pytest.raises(ExceptionTest):
         handle(*event_action_request)
 
-    assert len(event.check_runs) == 1
-    check_run = event.check_runs[0].check_run
+    assert len(event.check_runs) == 2
+    check_run = event.check_runs[0]._check_run
     check_run.edit.assert_called_with(
         conclusion="failure",
         status="completed",
@@ -111,9 +117,7 @@ def test_when_exception_and_has_check_run(event, event_action_request, mock_auth
 
 
 def test_when_exception_and_dont_has_check_run(event, event_action_request, mock_auth):
-    def method(inner_event):
-        inner_event.repository = event.repository
-        event.check_runs = inner_event.check_runs
+    def method(_):
         raise ExceptionTest("test")
 
     webhook_handler.register_method_for_event(EventTest, method)
@@ -121,3 +125,16 @@ def test_when_exception_and_dont_has_check_run(event, event_action_request, mock
         handle(*event_action_request)
 
     assert event.check_runs == []
+
+
+def test_when_exception_is_runtime(event, event_action_request, mock_auth):
+    method_called = False
+
+    def method(_):
+        nonlocal method_called
+        method_called = True
+        raise GithubAppRuntimeException("test")
+
+    webhook_handler.register_method_for_event(EventTest, method)
+    handle(*event_action_request)
+    assert method_called

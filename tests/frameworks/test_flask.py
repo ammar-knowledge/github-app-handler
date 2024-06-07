@@ -2,7 +2,7 @@ import inspect
 import os
 from typing import Union
 from unittest import TestCase
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pytest
 from flask import Flask
@@ -102,12 +102,11 @@ class TestCaseAppHandler(TestCase):
         assert response.text == "index"
 
     @staticmethod
+    @patch.dict(os.environ, {"CLIENT_ID": "id", "CLIENT_SECRET": "secret"}, clear=True)
     def test_auth_callback():
         auth_callback = Mock()
         app = Flask("Test")
         handle_with_flask(app, auth_callback_handler=auth_callback)
-        os.environ["CLIENT_ID"] = "id"
-        os.environ["CLIENT_SECRET"] = "secret"
         with patch("githubapp.webhook_handler.Github") as gh:
             response = app.test_client().get(
                 "/auth-callback?code=user_code&installation_id=123456&setup_action=install"
@@ -122,13 +121,6 @@ class TestCaseAppHandler(TestCase):
         auth_callback.assert_called_with(123456, get_access_token.return_value)
 
     def test_webhook(self):
-        """
-        Test the webhook handler of the application.
-        This test ensures that the webhook handler is working correctly.
-        It mocks the `handle` function of the `webhook_handler` module, sends a POST request to the root endpoint ("/")
-        with a specific JSON payload and headers, and checks that the `handle` function is called with the correct
-        arguments.
-        """
         with patch("githubapp.webhook_handler.handle") as mock_handle:
             request_json = {"action": "opened", "number": 1}
             headers = {
@@ -140,6 +132,27 @@ class TestCaseAppHandler(TestCase):
             }
             self.client.post("/", headers=headers, json=request_json)
             mock_handle.assert_called_once_with(headers, request_json, None)
+
+    def test_webhook_when_error(self):
+        with patch("githubapp.webhook_handler.handle") as mock_handle:
+            mock_handle.side_effect = Exception("error")
+            request_json = {"action": "opened", "number": 1}
+            headers = {
+                "User-Agent": "Werkzeug/3.0.1",
+                "Host": "localhost",
+                "Content-Type": "application/json",
+                "Content-Length": "33",
+                "X-Github-Event": "pull_request",
+            }
+            response = self.client.post("/", headers=headers, json=request_json)
+            assert response.status_code == 500
+            assert response.json["error"]["message"] == "error"
+            assert response.json["error"]["exception_info"] == {
+                "filename": ANY,
+                "func": ANY,
+                "lineno": ANY,
+                "type": "Exception",
+            }
 
     def send_event(self, event):
         event_identifier = event.event_identifier.copy()
@@ -181,9 +194,7 @@ def test_webhook(event: type[Event], client):
         called = True
         assert isinstance(event_handled, event)
 
-    handler.called = lambda: called
-
     response = TestCaseAppHandler.send_event(Mock(client=client), event)
 
     assert response.status_code == 200
-    assert handler.called()
+    assert called

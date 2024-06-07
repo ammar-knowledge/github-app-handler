@@ -1,3 +1,5 @@
+"""Class to represents the Github Create events"""
+
 from githubapp.events.event import Event
 
 

@@ -6,11 +6,12 @@ and provides access to those values via the ConfigValue class.
 """
 
 import os
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, NoReturn, TypeVar, Union
+from typing import Any, TypeVar, Union
 
 import yaml
-from github import UnknownObjectException
+from github import GithubException, UnknownObjectException
 from github.GithubObject import NotSet
 from github.Repository import Repository
 
@@ -30,10 +31,10 @@ class ConfigError(AttributeError):
 class ConfigValue:
     """The configuration loaded from the config file"""
 
-    def __init__(self, value: AnyBasic = None) -> NoReturn:
+    def __init__(self, value: AnyBasic = None) -> None:
         self._value = value
 
-    def set_values(self, data: dict[str, AnyBasic]) -> NoReturn:
+    def set_values(self, data: dict[str, AnyBasic]) -> None:
         """Set the attributes from a data dict"""
         for attr, value in data.items():
             if isinstance(value, dict):
@@ -43,7 +44,7 @@ class ConfigValue:
             else:
                 setattr(self, attr, value)
 
-    def create_config(self, name: str, *, default: AnyBasic = None, **values: AnyBasic) -> ConfigValueType:
+    def create_config(self, name: str, *, default: AnyBasic = None, **values: AnyBasic) -> "ConfigValue":
         """
         Create a configuration value and nested values.
 
@@ -64,7 +65,7 @@ class ConfigValue:
 
         return self
 
-    def load_config_from_file(self, filename: str, repository: Repository) -> NoReturn:
+    def load_config_from_file(self, filename: str, repository: Repository) -> None:
         """Load the config from a file"""
         try:
             raw_data = (
@@ -73,11 +74,14 @@ class ConfigValue:
             self.set_values(raw_data)
         except UnknownObjectException:
             pass
+        except GithubException as ghe:
+            if ghe.data.get("message") != "This repository is empty.":
+                raise
 
-    def __getattr__(self, item: str):
-        if value := os.getenv(item):
-            return value
-        raise ConfigError(f"No such config value: {item}. And there is no default value for it")
+    def __getattr__(self, item: str) -> Any:
+        if item.isupper():
+            return os.getenv(item)
+        raise ConfigError(f"No such config value for {item}. And there is no default value for it")
 
     @staticmethod
     def call_if(
@@ -100,7 +104,7 @@ class ConfigValue:
                 config_value = Config
                 for name in config_name.split("."):
                     config_value = getattr(config_value, name)
-                if value == NotSet and config_value or config_value == value:
+                if (value == NotSet and config_value) or config_value == value:
                     return method(*args, **kwargs)
                 return return_on_not_call
 
